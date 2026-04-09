@@ -3,13 +3,11 @@ const axios = require('axios');
 const cors = require('cors');
 const app = express();
 
-app.use(cors()); // GitHub Pages'dan so'rov yuborishga ruxsat beradi
+app.use(cors());
 app.use(express.json());
 
-// BU YERGA IIKO DAN OLGAN API LOGIN KODINGIZNI YOZING
-const IIKO_API_LOGIN = "SIZNING_IIKO_API_LOGININGIZ"; 
+const IIKO_API_LOGIN = "SIZNING_IIKO_API_LOGININGIZ";
 
-// 1. iiko dan Token olish funksiyasi
 async function getIikoToken() {
     try {
         const response = await axios.post('https://api-ru.iiko.services/api/1/access_token', {
@@ -22,31 +20,42 @@ async function getIikoToken() {
     }
 }
 
-// 2. Stol raqami bo'yicha hisobni olish
-app.get('/get-bill/:tableId', async (req, res) => {
-    const tableId = req.params.tableId;
+// ✅ YANGI: Barcha organizatsiyalarni olish
+app.get('/organizations', async (req, res) => {
     const token = await getIikoToken();
-
-    if (!token) return res.status(500).json({ error: "iiko token olinmadi" });
+    if (!token) return res.status(500).json({ error: "Token olinmadi" });
 
     try {
-        // Avval restoraningiz (organization) ID-sini olish
         const orgs = await axios.get('https://api-ru.iiko.services/api/1/organizations', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const orgId = orgs.data.organizations[0].id;
+        res.json(orgs.data.organizations);
+    } catch (error) {
+        res.status(500).json({ error: "Organizatsiyalar olinmadi" });
+    }
+});
 
-        // iiko dan stol ma'lumotlarini so'rash
-        const bill = await axios.post('https://api-ru.iiko.services/api/1/order/by_table', {
-            organizationIds: [orgId],
-            tableIds: [tableId]
-        }, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+// ✅ YANGI: Filial ID va stol ID bilan hisob olish
+app.get('/get-bill/:orgId/:tableId', async (req, res) => {
+    const { orgId, tableId } = req.params;
+    const token = await getIikoToken();
 
+    if (!token) return res.status(500).json({ error: "Token olinmadi" });
+
+    try {
+        const bill = await axios.post(
+            'https://api-ru.iiko.services/api/1/order/by_table',
+            {
+                organizationIds: [orgId], // Kerakli filial
+                tableIds: [tableId]
+            },
+            {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }
+        );
         res.json(bill.data);
     } catch (error) {
-        res.status(500).json({ error: "iiko ma'lumotlarni berishda xato qildi" });
+        res.status(500).json({ error: "Hisob olinmadi" });
     }
 });
 
