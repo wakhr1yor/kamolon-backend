@@ -6,7 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const IIKO_API_LOGIN = "SIZNING_IIKO_API_LOGININGIZ";
+const IIKO_API_LOGIN = "48fb4cd3-2ef6-4479-bea1-7c92721b988c";
 
 async function getIikoToken() {
     try {
