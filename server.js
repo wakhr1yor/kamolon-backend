@@ -15,7 +15,7 @@ async function getIikoToken() {
         });
         return response.data.token;
     } catch (error) {
-        console.error("Token xatosi:", error.message);
+        console.error('Token olishda xatolik:', error.message);
         throw error;
     }
 }
@@ -23,16 +23,18 @@ async function getIikoToken() {
 app.get('/organizations', async (req, res) => {
     try {
         const token = await getIikoToken();
-        const response = await axios.get('https://api-ru.iiko.services/api/1/organizations', {
-            headers: { 'Authorization': Bearer ${token} }
-        });
+        const response = await axios.post(
+            'https://api-ru.iiko.services/api/1/organizations',
+            { organizationIds: [] },
+            { headers: { Authorization: Bearer ${token} } }
+        );
         res.json(response.data.organizations);
     } catch (error) {
-        res.status(500).json({ error: "Xatolik", details: error.message });
+        res.status(500).json({ error: 'Xatolik', details: error.message });
     }
 });
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`Server yondi: ${PORT}`);
+    console.log(`Server ishga tushdi: ${PORT}`);
 });
