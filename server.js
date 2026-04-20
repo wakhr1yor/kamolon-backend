@@ -8,7 +8,7 @@ app.use(express.json());
 
 const IIKO_API_LOGIN = process.env.IIKO_API_LOGIN;
 
-// iiko Token olish (v1 versiya - eng osoni)
+// iiko Token olish funksiyasi
 async function getIikoToken() {
     try {
         const response = await axios.post('https://api-ru.iiko.services/api/1/access_token', {
@@ -21,6 +21,7 @@ async function getIikoToken() {
     }
 }
 
+// 1. Tashkilotlarni ko'rish
 app.get('/organizations', async (req, res) => {
     try {
         const token = await getIikoToken();
@@ -33,7 +34,7 @@ app.get('/organizations', async (req, res) => {
     }
 });
 
-// Stollar ro'yxati
+// 2. Stollarni ko'rish
 app.get('/get-tables/:organizationId', async (req, res) => {
     try {
         const token = await getIikoToken();
@@ -48,11 +49,11 @@ app.get('/get-tables/:organizationId', async (req, res) => {
         );
         res.json(tables);
     } catch (error) {
-        res.status(500).json({ error: "Stollarni yuklab bo'lmadi" });
+        res.status(500).json({ error: "Stollarni yuklashda xato" });
     }
 });
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`Server yondi: ${PORT}`);
+    console.log(`Server ${PORT}-portda ishlamoqda`);
 });
