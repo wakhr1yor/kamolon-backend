@@ -34,6 +34,39 @@ app.get('/organizations', async (req, res) => {
         res.status(500).json({ error: "Organizatsiyalar olinmadi" });
     }
 });
+// iiko'dagi barcha stollar ro'yxatini olish
+app.get('/get-tables/:organizationId', async (req, res) => {
+    try {
+        const token = await getIikoToken();
+        const { organizationId } = req.params;
+
+        console.log(`Stollar so'ralmoqda. OrgID: ${organizationId}`);
+
+        // iiko API orqali stollarni so'rash
+        const response = await axios.post('https://api-ru.iiko.services/api/1/entities/tables', {
+            organizationIds: [organizationId]
+        }, {
+            headers: { 
+                'Authorization': Bearer ${token},
+                'Content-Type': 'application/json' 
+            }
+        });
+
+        // Faqat kerakli ma'lumotlarni (id va nomi) qaytaramiz
+        const tables = response.data.restaurantSections.flatMap(section => 
+            section.tables.map(table => ({
+                id: table.id,
+                name: table.name,
+                section: section.name
+            }))
+        );
+
+        res.json(tables);
+    } catch (error) {
+        console.error("Stollarni olishda xato:", error.response?.data || error.message);
+        res.status(500).json({ error: "Stollarni yuklab bo'lmadi" });
+    }
+});
 
 // ✅ YANGI: Filial ID va stol ID bilan hisob olish
 app.get('/get-bill/:orgId/:tableId', async (req, res) => {
