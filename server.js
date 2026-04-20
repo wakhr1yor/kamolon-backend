@@ -8,7 +8,7 @@ app.use(express.json());
 
 const IIKO_API_LOGIN = process.env.IIKO_API_LOGIN;
 
-// iiko Token olish funksiyasi
+// iiko Token olish (v1 versiya - eng osoni)
 async function getIikoToken() {
     try {
         const response = await axios.post('https://api-ru.iiko.services/api/1/access_token', {
@@ -16,12 +16,11 @@ async function getIikoToken() {
         });
         return response.data.token;
     } catch (error) {
-        console.error("Token olishda xato:", error.message);
+        console.error("Token olishda xato:", error.response?.data || error.message);
         throw error;
     }
 }
 
-// 1. Tashkilotlarni olish
 app.get('/organizations', async (req, res) => {
     try {
         const token = await getIikoToken();
@@ -30,11 +29,11 @@ app.get('/organizations', async (req, res) => {
         });
         res.json(response.data.organizations);
     } catch (error) {
-        res.status(500).json({ error: "Tashkilotlarni yuklab bo'lmadi" });
+        res.status(500).json({ error: "Token olinmadi", details: error.message });
     }
 });
 
-// 2. Stollarni olish
+// Stollar ro'yxati
 app.get('/get-tables/:organizationId', async (req, res) => {
     try {
         const token = await getIikoToken();
@@ -45,7 +44,7 @@ app.get('/get-tables/:organizationId', async (req, res) => {
         });
         
         const tables = response.data.restaurantSections.flatMap(section => 
-            section.tables.map(table => ({ id: table.id, name: table.name, section: section.name }))
+            section.tables.map(table => ({ id: table.id, name: table.name }))
         );
         res.json(tables);
     } catch (error) {
@@ -53,23 +52,7 @@ app.get('/get-tables/:organizationId', async (req, res) => {
     }
 });
 
-// 3. Shotni ko'rish
-app.get('/get-bill/:organizationId/:tableId', async (req, res) => {
-    try {
-        const token = await getIikoToken();
-        const response = await axios.post('https://api-ru.iiko.services/api/1/order/by_table', {
-            organizationIds: [req.params.organizationId],
-            tableIds: [req.params.tableId]
-        }, {
-            headers: { 'Authorization': Bearer ${token} }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "Shotni yuklab bo'lmadi" });
-    }
-});
-
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`Server ${PORT}-portda ishlamoqda`);
+    console.log(`Server yondi: ${PORT}`);
 });
