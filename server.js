@@ -60,4 +60,22 @@ app.get('/get-bill/:orgId/:tableId', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+// Stol bo'yicha joriy buyurtmani (shotni) olish
+app.get('/get-bill/:organizationId/:tableId', async (req, res) => {
+    try {
+        const token = await getIikoToken();
+        const { organizationId, tableId } = req.params;
+
+        const response = await axios.post('https://api-ru.iiko.services/api/1/order/by_table', {
+            organizationIds: [organizationId],
+            tableIds: [tableId]
+        }, {
+            headers: { 'Authorization': Bearer ${token} }
+        });
+
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "Shotni yuklashda xatolik yuz berdi" });
+    }
+});
 app.listen(PORT, () => console.log(`Server ${PORT}-portda yondi`));
