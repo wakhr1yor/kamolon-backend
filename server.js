@@ -1,13 +1,14 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const app = express();
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 
-const IIKO_API_LOGIN = process.env.IIKO_API_LOGIN;"e820179d12454fd890c14547fa1c6b97";
+const IIKO_API_LOGIN = process.env.IIKO_API_LOGIN;
 
+// iiko Token olish funksiyasi
 async function getIikoToken() {
     try {
         const response = await axios.post('https://api-ru.iiko.services/api/1/access_token', {
@@ -16,99 +17,59 @@ async function getIikoToken() {
         return response.data.token;
     } catch (error) {
         console.error("Token olishda xato:", error.message);
-        return null;
+        throw error;
     }
 }
 
-// ✅ YANGI: Barcha organizatsiyalarni olish
+// 1. Tashkilotlarni olish
 app.get('/organizations', async (req, res) => {
-    const token = await getIikoToken();
-    if (!token) return res.status(500).json({ error: "Token olinmadi" });
-
     try {
-        const orgs = await axios.get('https://api-ru.iiko.services/api/1/organizations', {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const token = await getIikoToken();
+        const response = await axios.get('https://api-ru.iiko.services/api/1/organizations', {
+            headers: { 'Authorization': Bearer ${token} }
         });
-        res.json(orgs.data.organizations);
+        res.json(response.data.organizations);
     } catch (error) {
-        res.status(500).json({ error: "Organizatsiyalar olinmadi" });
+        res.status(500).json({ error: "Tashkilotlarni yuklab bo'lmadi" });
     }
 });
-// iiko'dagi barcha stollar ro'yxatini olish
+
+// 2. Stollarni olish
 app.get('/get-tables/:organizationId', async (req, res) => {
     try {
         const token = await getIikoToken();
-        const { organizationId } = req.params;
-
-        console.log(`Stollar so'ralmoqda. OrgID: ${organizationId}`);
-
-        // iiko API orqali stollarni so'rash
         const response = await axios.post('https://api-ru.iiko.services/api/1/entities/tables', {
-            organizationIds: [organizationId]
+            organizationIds: [req.params.organizationId]
         }, {
-            headers: { 
-                'Authorization': Bearer ${token},
-                'Content-Type': 'application/json' 
-            }
+            headers: { 'Authorization': Bearer ${token} }
         });
-
-        // Faqat kerakli ma'lumotlarni (id va nomi) qaytaramiz
+        
         const tables = response.data.restaurantSections.flatMap(section => 
-            section.tables.map(table => ({
-                id: table.id,
-                name: table.name,
-                section: section.name
-            }))
+            section.tables.map(table => ({ id: table.id, name: table.name, section: section.name }))
         );
-
         res.json(tables);
     } catch (error) {
-        console.error("Stollarni olishda xato:", error.response?.data || error.message);
         res.status(500).json({ error: "Stollarni yuklab bo'lmadi" });
     }
 });
 
-// ✅ YANGI: Filial ID va stol ID bilan hisob olish
-app.get('/get-bill/:orgId/:tableId', async (req, res) => {
-    const { orgId, tableId } = req.params;
-    const token = await getIikoToken();
-
-    if (!token) return res.status(500).json({ error: "Token olinmadi" });
-
-    try {
-        const bill = await axios.post(
-            'https://api-ru.iiko.services/api/1/order/by_table',
-            {
-                organizationIds: [orgId], // Kerakli filial
-                tableIds: [tableId]
-            },
-            {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }
-        );
-        res.json(bill.data);
-    } catch (error) {
-        res.status(500).json({ error: "Hisob olinmadi" });
-    }
-});
-
-const PORT = process.env.PORT || 3000;
-// Stol bo'yicha joriy buyurtmani (shotni) olish
+// 3. Shotni ko'rish
 app.get('/get-bill/:organizationId/:tableId', async (req, res) => {
     try {
         const token = await getIikoToken();
-        const { organizationId, tableId } = req.params;
-
         const response = await axios.post('https://api-ru.iiko.services/api/1/order/by_table', {
-            organizationIds: [organizationId],
-            tableIds: [tableId]
+            organizationIds: [req.params.organizationId],
+            tableIds: [req.params.tableId]
         }, {
             headers: { 'Authorization': Bearer ${token} }
         });
-
         res.json(response.data);
     } catch (error) {
-        res.status(500).json({ error: "Shotni yuklashda xatolik yuz berdi" });
+        res.status(500).json({ error: "Shotni yuklab bo'lmadi" });
     }
 });
-app.listen(PORT, () => console.log(`Server ${PORT}-portda yondi`));
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`Server ${PORT}-portda ishlamoqda`);
+});
