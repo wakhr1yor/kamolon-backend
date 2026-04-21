@@ -26,7 +26,7 @@ app.get('/organizations', async (req, res) => {
         const response = await axios.post(
             'https://api-ru.iiko.services/api/1/organizations',
             { organizationIds: [] },
-            { headers: { Authorization: Bearer ${token} } }
+            { headers: { Authorization: 'Bearer ${token}' } }
         );
         res.json(response.data.organizations);
     } catch (error) {
