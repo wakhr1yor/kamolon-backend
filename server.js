@@ -39,58 +39,54 @@ app.get('/organizations', async (req, res) => {
 });
 
 // 3. STOLLARNI OLISH (Aynan o'sha siz so'ragan get-tables)
-app.get('/get-tables/:organizationId', async (req, res) => {
+// STOL HISOBINI (СЧЕТ) OLISH
+app.get('/get-bill/:tableNum', async (req, res) => {
     try {
-        const orgId = req.params.organizationId;
+        const tableNum = req.params.tableNum;
         const token = await getIikoToken();
-        
-        // 1. Terminal guruhlarini olamiz (Boyagi rasmda chiqqan ma'lumot)
-        const terminalResponse = await axios.post(
-            'https://api-ru.iiko.services/api/1/terminal_groups',
-            { organizationIds: [orgId] },
+        const orgId = "932f51b3-e90b-454b-a838-eb9dec383b9a"; // Sizning Org ID
+
+        // 1. Ochiq buyurtmalarni (hisoblarni) qidiramiz
+        const response = await axios.post(
+            'https://api-ru.iiko.services/api/1/orders/by_table',
+            { 
+                organizationIds: [orgId],
+                tableIds: [] // Bu yerda stol ID kerak bo'ladi, hozircha umumiy so'raymiz
+            },
             { headers: { Authorization: 'Bearer ' + token } }
         );
 
-        const terminalGroups = terminalResponse.data.terminalGroups;
+        // 2. Kelgan buyurtmalar ichidan aynan bizning stolni filtrlaymiz
+        const tableOrder = response.data.orders.find(order => 
+            order.tableIds && order.tableIds.includes(tableNum)
+        );
 
-        if (!terminalGroups || terminalGroups.length === 0) {
-            return res.status(404).json({ error: "Terminal topilmadi" });
+        if (!tableOrder) {
+            return res.send(`<h2>Stol №${tableNum}: Hozircha ochiq hisob yo'q.</h2>`);
         }
 
-        // 2. Terminal ID-sini avtomatik olamiz
-        const terminalGroupId = terminalGroups[0].items[0].id;
+        // 3. Hisob ma'lumotlarini chiroyli qilib chiqaramiz
+        let itemsHtml = tableOrder.items.map(item => 
+            <li>${item.name} x ${item.amount} = ${item.sum} so'm</li>
+        ).join('');
 
-        // 3. Muhim: Reserve endpointiga ruxsat bo'lmasa, terminal ma'lumotlarini o'zini qaytaramiz
-        // Lekin biz baribir stollarni olishga urinib ko'ramiz (boshqa metod bilan)
-        try {
-            const layoutResponse = await axios.post(
-                'https://api-ru.iiko.services/api/1/reserve/available_sections',
-                { 
-                    organizationIds: [orgId],
-                    terminalGroupIds: [terminalGroupId]
-                },
-                { headers: { Authorization: 'Bearer ' + token } }
-            );
-            
-            res.json({
-                source: "Reserve API",
-                terminalName: terminalGroups[0].items[0].name,
-                sections: layoutResponse.data.sections
-            });
-        } catch (innerError) {
-            // Agar baribir "Allowed emas" desa, terminal ma'lumotlarini beramiz
-            res.json({
-                source: "Terminal API (Fallback)",
-                message: "Reserve API-ga ruxsat yo'q, lekin terminal bog'langan.",
-                terminalInfo: terminalGroups[0].items[0]
-            });
-        }
+        res.send(`
+            <div style="font-family: sans-serif; padding: 20px; border: 2px dashed #000; max-width: 300px;">
+                <h3 style="text-align: center;">KAMOLON OSH</h3>
+                <p><b>Stol:</b> ${tableNum}</p>
+                <hr>
+                <ul style="list-style: none; padding: 0;">${itemsHtml}</ul>
+                <hr>
+                <h4 style="text-align: right;">JAMI: ${tableOrder.totalSum} so'm</h4>
+                <p style="text-align: center; font-size: 12px;">Xizmatingiz uchun rahmat!</p>
+            </div>
+        `);
 
     } catch (error) {
-        res.status(500).json({ error: 'Xatolik', details: error.message });
+        console.error('Xatolik:', error.response ? error.response.data : error.message);
+        res.status(500).json({ error: "Hisobni yuklashda xato", details: error.message });
     }
 });
-
 // 4. QR GENERATOR
 app.get('/generate-qr', async (req, res) => {
     try {
