@@ -9,6 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 const IIKO_API_LOGIN = process.env.IIKO_API_LOGIN;
+const ORG_ID = "932f51b3-e90b-454b-a838-eb9dec383b9a"; 
 
 // 1. IIKO TOKEN OLISH
 async function getIikoToken() {
@@ -23,40 +24,18 @@ async function getIikoToken() {
     }
 }
 
-// 2. FILIALLARNI OLISH (Organizations)
-app.get('/organizations', async (req, res) => {
-    try {
-        const token = await getIikoToken();
-        const response = await axios.post(
-            'https://api-ru.iiko.services/api/1/organizations',
-            { organizationIds: [] },
-            { headers: { Authorization: 'Bearer ' + token } }
-        );
-        res.json(response.data.organizations);
-    } catch (error) {
-        res.status(500).json({ error: 'Xatolik', details: error.message });
-    }
-});
-
-// 3. STOLLARNI OLISH (Aynan o'sha siz so'ragan get-tables)
-// STOL HISOBINI (СЧЕТ) OLISH
+// 2. STOL HISOBINI (СЧЕТ) OLISH
 app.get('/get-bill/:tableNum', async (req, res) => {
     try {
         const tableNum = req.params.tableNum;
         const token = await getIikoToken();
-        const orgId = "932f51b3-e90b-454b-a838-eb9dec383b9a"; // Sizning Org ID
 
-        // 1. Ochiq buyurtmalarni (hisoblarni) qidiramiz
         const response = await axios.post(
             'https://api-ru.iiko.services/api/1/orders/by_table',
-            { 
-                organizationIds: [orgId],
-                tableIds: [] // Bu yerda stol ID kerak bo'ladi, hozircha umumiy so'raymiz
-            },
+            { organizationIds: [ORG_ID] },
             { headers: { Authorization: 'Bearer ' + token } }
         );
 
-        // 2. Kelgan buyurtmalar ichidan aynan bizning stolni filtrlaymiz
         const tableOrder = response.data.orders.find(order => 
             order.tableIds && order.tableIds.includes(tableNum)
         );
@@ -65,15 +44,15 @@ app.get('/get-bill/:tableNum', async (req, res) => {
             return res.send(`<h2>Stol №${tableNum}: Hozircha ochiq hisob yo'q.</h2>`);
         }
 
-        // 3. Hisob ma'lumotlarini chiroyli qilib chiqaramiz
         let itemsHtml = tableOrder.items.map(item => 
             <li>${item.name} x ${item.amount} = ${item.sum} so'm</li>
         ).join('');
 
+        // DIQQAT: Bu yerda backtick belgilari (`) ishlatilgan
         res.send(`
-            <div style="font-family: sans-serif; padding: 20px; border: 2px dashed #000; max-width: 300px;">
+            <div style="font-family: sans-serif; padding: 20px; border: 2px dashed #000; max-width: 350px; margin: auto;">
                 <h3 style="text-align: center;">KAMOLON OSH</h3>
-                <p><b>Stol:</b> ${tableNum}</p>
+                <p><b>Stol raqami:</b> ${tableNum}</p>
                 <hr>
                 <ul style="list-style: none; padding: 0;">${itemsHtml}</ul>
                 <hr>
@@ -83,46 +62,42 @@ app.get('/get-bill/:tableNum', async (req, res) => {
         `);
 
     } catch (error) {
-        console.error('Xatolik:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: "Hisobni yuklashda xato", details: error.message });
+        res.status(500).send("Xatolik: iiko orders API ruxsati yoqilmagan bo'lishi mumkin.");
     }
 });
-// 4. QR GENERATOR
+
+// 3. QR GENERATOR (Endi to'g'ridan-to'g'ri hisobga yo'naltiradi)
 app.get('/generate-qr', async (req, res) => {
     try {
         const tableNum = req.query.tableNum || "0";
         const canvas = createCanvas(400, 600);
         const ctx = canvas.getContext('2d');
 
-        // Fon
         ctx.fillStyle = '#004a61';
         ctx.fillRect(0, 0, 400, 600);
 
-        // Matnlar
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 30px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('KAMOLON OSH', 200, 50);
         ctx.fillText('STOL - ' + tableNum, 200, 110);
 
-        // QR URL
-        const qrUrl = "https://kamolon-osh.uz/order?table=" + tableNum;
+        // QR manzil endi /get-bill endpointiga boradi
+        const qrUrl = "https://kamolon-backend.onrender.com/get-bill/" + tableNum;
         const qrImageBuffer = await QRCode.toDataURL(qrUrl);
         const qrImage = await loadImage(qrImageBuffer);
 
         ctx.drawImage(qrImage, 50, 150, 300, 300);
-        ctx.fillText('HISOB SHU YERDA', 200, 530);
+        ctx.fillText('HISOBNI KO\'RISH', 200, 530);
 
         const buffer = canvas.toBuffer('image/png');
         res.set('Content-Type', 'image/png');
         res.send(buffer);
     } catch (err) {
-        console.error(err);
         res.status(500).send("Generator xatosi");
     }
 });
 
-// 5. SERVERNI ISHGA TUSHIRISH
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log('Server ishga tushdi: ' + PORT);
