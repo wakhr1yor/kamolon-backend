@@ -44,40 +44,19 @@ app.get('/get-tables/:organizationId', async (req, res) => {
         const orgId = req.params.organizationId;
         const token = await getIikoToken();
         
-        // 1. Avval ushbu filialga tegishli terminal guruhlarini olamiz
-        const terminalResponse = await axios.post(
+        // Terminal guruhlarini olamiz (Bu endpoint odatda hamma uchun ochiq)
+        const response = await axios.post(
             'https://api-ru.iiko.services/api/1/terminal_groups',
             { organizationIds: [orgId] },
             { headers: { Authorization: 'Bearer ' + token } }
         );
 
-        const terminalGroups = terminalResponse.data.terminalGroups;
-
-        if (!terminalGroups || terminalGroups.length === 0) {
-            return res.status(404).json({ error: "Ushbu filialda terminallar topilmadi" });
-        }
-
-        // 2. Birinchi terminal guruhining ID-sini olamiz (odatda bitta bo'ladi)
-        const terminalGroupId = terminalGroups[0].items[0].id;
-
-        // 3. Ushbu terminalga tegishli stollar (Layout) ni olamiz
-        const layoutResponse = await axios.get(
-            'https://api-ru.iiko.services/api/1/reserve/available_sections?organizationIds=' + orgId + '&terminalGroupIds=' + terminalGroupId,
-            { headers: { Authorization: 'Bearer ' + token } }
-        );
-
-        // Faqat stollar ro'yxatini qaytaramiz
-        res.json({
-            terminalName: terminalGroups[0].items[0].name,
-            sections: layoutResponse.data.sections // Bu yerda stollar (tables) bo'ladi
-        });
+        // Natijani qaytaramiz - bu yerda sizga kerakli terminal va unga bog'liq stollar chiqishi mumkin
+        res.json(response.data);
 
     } catch (error) {
-        console.error('Stol olishda xato:', error.response ? error.response.data : error.message);
-        res.status(500).json({ 
-            error: 'Stollarni yuklab bo\'lmadi', 
-            details: error.response ? error.response.data : error.message 
-        });
+        console.error('Xatolik:', error.response ? error.response.data : error.message);
+        res.status(500).json({ error: 'Ma’lumot olishda xato', details: error.message });
     }
 });
 
