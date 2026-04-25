@@ -44,19 +44,50 @@ app.get('/get-tables/:organizationId', async (req, res) => {
         const orgId = req.params.organizationId;
         const token = await getIikoToken();
         
-        // Terminal guruhlarini olamiz (Bu endpoint odatda hamma uchun ochiq)
-        const response = await axios.post(
+        // 1. Terminal guruhlarini olamiz (Boyagi rasmda chiqqan ma'lumot)
+        const terminalResponse = await axios.post(
             'https://api-ru.iiko.services/api/1/terminal_groups',
             { organizationIds: [orgId] },
             { headers: { Authorization: 'Bearer ' + token } }
         );
 
-        // Natijani qaytaramiz - bu yerda sizga kerakli terminal va unga bog'liq stollar chiqishi mumkin
-        res.json(response.data);
+        const terminalGroups = terminalResponse.data.terminalGroups;
+
+        if (!terminalGroups || terminalGroups.length === 0) {
+            return res.status(404).json({ error: "Terminal topilmadi" });
+        }
+
+        // 2. Terminal ID-sini avtomatik olamiz
+        const terminalGroupId = terminalGroups[0].items[0].id;
+
+        // 3. Muhim: Reserve endpointiga ruxsat bo'lmasa, terminal ma'lumotlarini o'zini qaytaramiz
+        // Lekin biz baribir stollarni olishga urinib ko'ramiz (boshqa metod bilan)
+        try {
+            const layoutResponse = await axios.post(
+                'https://api-ru.iiko.services/api/1/reserve/available_sections',
+                { 
+                    organizationIds: [orgId],
+                    terminalGroupIds: [terminalGroupId]
+                },
+                { headers: { Authorization: 'Bearer ' + token } }
+            );
+            
+            res.json({
+                source: "Reserve API",
+                terminalName: terminalGroups[0].items[0].name,
+                sections: layoutResponse.data.sections
+            });
+        } catch (innerError) {
+            // Agar baribir "Allowed emas" desa, terminal ma'lumotlarini beramiz
+            res.json({
+                source: "Terminal API (Fallback)",
+                message: "Reserve API-ga ruxsat yo'q, lekin terminal bog'langan.",
+                terminalInfo: terminalGroups[0].items[0]
+            });
+        }
 
     } catch (error) {
-        console.error('Xatolik:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Ma’lumot olishda xato', details: error.message });
+        res.status(500).json({ error: 'Xatolik', details: error.message });
     }
 });
 
